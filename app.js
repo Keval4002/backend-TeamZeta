@@ -56,20 +56,52 @@ const aiRouter = require('./routes/aiRouter');
 // Middleware
 app.use(express.json());
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`📝 ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || 'no origin'}`);
+  next();
+});
+
 // CORS Configuration for Production
 const corsOptions = {
-  origin: [
-    'http://localhost:5173', // Local Vite dev server
-    'http://localhost:3000', // Local alternative
-    'https://teamzetafront.netlify.app', // Your deployed frontend
-    'https://pockit-backend.onrender.com' // Your deployed backend (for testing)
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://teamzetafront.netlify.app',
+      'https://pockit-backend.onrender.com'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      callback(null, true); // For now, allow all origins to debug
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // For legacy browser support
 };
 
 app.use(cors(corsOptions));
+
+// Additional CORS headers for preflight
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // --- 🔥 Firebase Admin Initialization ---
 let serviceAccount;
