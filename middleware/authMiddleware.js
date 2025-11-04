@@ -12,30 +12,75 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     // 1. VERIFY THE TOKEN WITH FIREBASE
+    console.log('🔐 Verifying Firebase token...');
     const decodedToken = await admin.auth().verifyIdToken(token);
+    console.log('✅ Firebase token verified successfully');
     
     // Destructure the properties from the token
     const { uid, email, name, phone_number } = decodedToken;
+    console.log(`👤 User details - UID: ${uid}, Email: ${email}`);
 
     // 2. FIND OR CREATE THE USER IN MONGODB
     // Try to find the user first
     let user = await User.findOne({ firebaseUid: uid });
 
     if (!user) {
-      // 3. CREATE NEW USER
-      // If user doesn't exist, create them in your database
+      // 3. CREATE NEW USER OR FIND EXISTING
       console.log(`✨ Creating new user in DB for: ${email}`);
       
-      const newUserDetails = {
-        firebaseUid: uid,
-        email: email,
-        displayName: name || '', // Use 'name' from token, or default
-        // Only add phone_number if it exists in the token
-        ...(phone_number && { phone_number: phone_number }) 
-      };
+      // First, try to find if user already exists by email (in case of previous errors)
+      user = await User.findOne({ email: email });
+      
+      if (!user) {
+        const newUserDetails = {
+          firebaseUid: uid,
+          email: email,
+          displayName: name || '', // Use 'name' from token, or default
+        };
 
-      user = new User(newUserDetails);
-      await user.save();
+        // Only add phone_number if it exists and is not null/undefined
+        if (phone_number && phone_number.trim() !== '') {
+          newUserDetails.phone_number = phone_number;
+        }
+
+        try {
+          user = new User(newUserDetails);
+          await user.save();
+          console.log(`✅ Successfully created new user for: ${email}`);
+        } catch (saveError) {
+          console.log(`⚠️ User creation error for ${email}:`, saveError.message);
+          
+          if (saveError.code === 11000) {
+            // Duplicate key error - try different approaches
+            if (saveError.message.includes('phone_number')) {
+              console.log(`🔍 Phone number conflict, trying without phone for: ${email}`);
+              // Remove phone_number and try again
+              delete newUserDetails.phone_number;
+              try {
+                user = new User(newUserDetails);
+                await user.save();
+                console.log(`✅ Created user without phone number for: ${email}`);
+              } catch (secondError) {
+                // Last resort: find by email
+                user = await User.findOne({ email: email });
+                if (!user) {
+                  throw saveError;
+                }
+              }
+            } else {
+              // Email duplicate - find existing user
+              user = await User.findOne({ email: email });
+              if (!user) {
+                throw saveError;
+              }
+            }
+          } else {
+            throw saveError;
+          }
+        }
+      } else {
+        console.log(`✅ Found existing user for: ${email}`);
+      }
     }
 
     // 4. ATTACH USER TO THE REQUEST

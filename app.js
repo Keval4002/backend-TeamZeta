@@ -41,7 +41,7 @@
 
 // backend/app.js
 
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -64,18 +64,35 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   try {
     // Parse the service account JSON from the environment variable
     serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    console.log('✅ Firebase service account loaded from environment variables');
+    console.log('📋 Project ID:', serviceAccount.project_id);
+    console.log('📋 Client Email:', serviceAccount.client_email);
   } catch (err) {
     console.error('❌ Invalid FIREBASE_SERVICE_ACCOUNT JSON:', err);
+    console.log('🔍 Falling back to serviceAccount.json file');
+    serviceAccount = require('./serviceAccount.json');
   }
 } else {
-  // fallback for local development
+  console.log('⚠️ No FIREBASE_SERVICE_ACCOUNT env var found, using serviceAccount.json');
   serviceAccount = require('./serviceAccount.json');
 }
 
+// Validate service account before initializing
+if (!serviceAccount || !serviceAccount.project_id || !serviceAccount.private_key) {
+  console.error('❌ Invalid service account configuration');
+  process.exit(1);
+}
+
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('✅ Firebase Admin SDK initialized successfully');
+  } catch (firebaseError) {
+    console.error('❌ Firebase Admin SDK initialization failed:', firebaseError);
+    process.exit(1);
+  }
 }
 
 // --- Routes ---
