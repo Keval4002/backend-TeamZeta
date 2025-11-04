@@ -132,7 +132,7 @@ app.use('/api/transactions', transactionsRouter);
 app.use('/api/ai', aiRouter);
 
 // --- 404 Handler ---
-app.use('*', (req, res) => {
+app.use((req, res) => {
   console.log(`❌ 404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     error: 'Route not found',
