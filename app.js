@@ -55,7 +55,21 @@ const aiRouter = require('./routes/aiRouter');
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+
+// CORS Configuration for Production
+const corsOptions = {
+  origin: [
+    'http://localhost:5173', // Local Vite dev server
+    'http://localhost:3000', // Local alternative
+    'https://teamzetafront.netlify.app', // Your deployed frontend
+    'https://pockit-backend.onrender.com' // Your deployed backend (for testing)
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 
 // --- 🔥 Firebase Admin Initialization ---
 let serviceAccount;
@@ -95,10 +109,47 @@ if (!admin.apps.length) {
   }
 }
 
+// --- Health Check Route ---
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'PockIt Backend API is running!', 
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/api', (req, res) => {
+  res.json({ 
+    message: 'PockIt API v1.0', 
+    endpoints: ['/api/auth', '/api/transactions', '/api/ai'],
+    status: 'healthy'
+  });
+});
+
 // --- Routes ---
 app.use('/api/auth', authRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/ai', aiRouter);
+
+// --- 404 Handler ---
+app.use('*', (req, res) => {
+  console.log(`❌ 404 - Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    error: 'Route not found',
+    path: req.originalUrl,
+    method: req.method,
+    availableRoutes: ['/api/auth', '/api/transactions', '/api/ai']
+  });
+});
+
+// --- Error Handler ---
+app.use((error, req, res, next) => {
+  console.error('❌ Server Error:', error);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+  });
+});
 
 // --- Server ---
 const port = process.env.PORT || 3000;
