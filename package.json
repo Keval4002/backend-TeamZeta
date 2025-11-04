@@ -1,4 +1,27 @@
 {
+  "name": "pockit-backend",
+  "version": "1.0.0",
+  "description": "Backend API for PockIt personal finance application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node app.js",
+    "vercel-build": "echo 'Backend build complete'",
+    "build": "echo 'Build complete'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "express",
+    "nodejs",
+    "api",
+    "finance",
+    "mongodb",
+    "firebase"
+  ],
+  "author": "TeamZeta",
+  "license": "MIT",
   "dependencies": {
     "@langchain/core": "^1.0.2",
     "@langchain/google-genai": "^1.0.0",
@@ -8,5 +31,8 @@
     "firebase-admin": "^13.5.0",
     "mongoose": "^8.19.2",
     "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   }
 }
